@@ -22,13 +22,13 @@ editor: visual
 
 ## Introduction
 
-Let's find out what proportion of households in the Triangle\*within each of the U.S. Census ACS household income brackets own 0, 1, 2, and 3+ cars!
+Let's find out what proportion of households in the Triangle within each of the U.S. Census ACS household income brackets own 0, 1, 2, and 3+ cars!
 
 ## Get some data
 
-Let's pull in the census data necessary. Vehicles by Income is not tabulated in the ACS area releases so we'll need to use the microdata (2019 this case). Thus, we'll define the Triangle as all Census Public Usu Microdata Areas that intersect the Raleigh-Durham-Cary Combined Statistical Area:
+Let's pull in the census data necessary. Vehicles by Income is not tabulated in the ACS area releases so we'll need to use the microdata (2019 this case). Thus, we'll define the Triangle as all Census Public Use Microdata Areas that intersect the Raleigh-Durham-Cary Combined Statistical Area:
 
-```{r, include=FALSE}
+```{r, output=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(tidycensus)
 library(survey)
@@ -74,7 +74,7 @@ mapview(PUMAs, layer.name="PUMAs in analysis") + mapview(csa,color = "red", lwd=
 
 Now we summarize the household level data by breaking the household income variable into 11 brackets, and the vehicles variable into categories of 0,1,2, and 3+ vehicles. We also plot the results
 
-```{r, results="asis", echo=FALSE, message=FALSE, warning=FALSE}
+```{r, results="asis", message=FALSE, warning=FALSE, message=FALSE}
 #write_csv(data,"data.csv")
 
 data <- read_csv("data.csv")
