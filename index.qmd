@@ -1,0 +1,64 @@
+---
+title: "What kinds of households own cars in the Triangle?"
+format: html
+editor: visual
+---
+
+## Introduction
+
+Let's find out what proportion of households in the Triangle\* within each of the U.S. Census ACS household income brackets own 0, 1, 2, and 3+ cars!
+
+\*Triangle means Raleigh Combined Statistical Area, aka these counties:
+
+-   Chatham
+
+-   Durham
+
+-   Franklin
+
+-   Granville
+
+-   Johnston
+
+-   Orange
+
+-   Person
+
+-   Vance
+
+-   Wake
+
+## Get some data
+
+Let's pull in the census data necessary. Vehicles by Income is not tabulated in the ACS area releases so we'll need to use the microdata (2019 this case).
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(survey)
+library(srvyr)
+library(sf)
+census_api_key("b25f8b1b7bf10561c9cbc3a20a4d2572677f1f05", install=TRUE)
+
+
+v20 <- pums_variables %>% 
+  filter(year == 2019, survey == "acs5")
+
+data <- get_pums(
+  variables = c("PUMA", "RT", "HINCP", "FHINCP", "VEH", "FVEHP"),
+  state = "NC",
+  survey = "acs5",
+  recode = TRUE,
+  year = 2019,
+  rep="housing"
+  )
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
