@@ -1,64 +1,126 @@
 ---
 title: "What kinds of households own cars in the Triangle?"
-format: html
+format: 
+  html:
+    title-block-banner: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    html-math-method: katex
+    code-fold: true
+    code-summary: "show the code"
+    code-overflow: wrap
+    code-tools: true
+    number-sections: true
+    theme: 
+      dark: slate
+      light: flatly
+    fig-width: 9
+    fig-height: 6
 editor: visual
 ---
 
 ## Introduction
 
-Let's find out what proportion of households in the Triangle\* within each of the U.S. Census ACS household income brackets own 0, 1, 2, and 3+ cars!
-
-\*Triangle means Raleigh Combined Statistical Area, aka these counties:
-
--   Chatham
-
--   Durham
-
--   Franklin
-
--   Granville
-
--   Johnston
-
--   Orange
-
--   Person
-
--   Vance
-
--   Wake
+Let's find out what proportion of households in the Triangle\*within each of the U.S. Census ACS household income brackets own 0, 1, 2, and 3+ cars!
 
 ## Get some data
 
-Let's pull in the census data necessary. Vehicles by Income is not tabulated in the ACS area releases so we'll need to use the microdata (2019 this case).
+Let's pull in the census data necessary. Vehicles by Income is not tabulated in the ACS area releases so we'll need to use the microdata (2019 this case). Thus, we'll define the Triangle as all Census Public Usu Microdata Areas that intersect the Raleigh-Durham-Cary Combined Statistical Area:
 
-```{r}
+```{r, include=FALSE}
 library(tidyverse)
 library(tidycensus)
 library(survey)
 library(srvyr)
 library(sf)
-census_api_key("b25f8b1b7bf10561c9cbc3a20a4d2572677f1f05", install=TRUE)
+library(mapview)
+library(viridis)
 
+census_api_key("b25f8b1b7bf10561c9cbc3a20a4d2572677f1f05", install=TRUE,overwrite=TRUE)
+
+pumas <- tigris::pumas(state="NC",year = 2019) %>% 
+  mutate(area_puma=as.numeric(st_area(.)))
+
+csa <- tigris::combined_statistical_areas(year = 2019) %>% 
+  filter(GEOID==450) %>% #get Raleigh combined statistical area
+  mutate(area_csa=as.numeric(st_area(.)))
+
+geoids <- st_intersection(csa,pumas) %>% mutate(int_area=as.numeric(st_area(.)),
+                                                perc_puma_area = 100*int_area/area_puma)
+
+PUMAs <- pumas %>% filter(PUMACE10 %in% geoids$PUMACE10[which(geoids$perc_puma_area>50)])
+
+mapview(PUMAs, layer.name="PUMAs in analysis") + mapview(csa,color = "red", lwd=2,alpha.regions=0, col.region="red", layer.name="Raleigh-Durham-Cary CSA")
 
 v20 <- pums_variables %>% 
   filter(year == 2019, survey == "acs5")
 
-data <- get_pums(
-  variables = c("PUMA", "RT", "HINCP", "FHINCP", "VEH", "FVEHP"),
-  state = "NC",
-  survey = "acs5",
-  recode = TRUE,
-  year = 2019,
-  rep="housing"
+# data <- get_pums(
+#   variables = c("PUMA", "HINCP", "FHINCP", "VEH", "FVEHP"),
+#   state = "NC",
+#   survey = "acs5",
+#   recode = TRUE,
+#   year = 2019,
+#   rep="housing"
+#   ) 
+```
+
+```{r, results="asis"}
+mapview(PUMAs, layer.name="PUMAs in analysis") + mapview(csa,color = "red", lwd=2,alpha.regions=0, col.region="red", layer.name="Raleigh-Durham-Cary CSA")
+```
+
+## Summarize data
+
+Now we summarize the household level data by breaking the household income variable into 11 brackets, and the vehicles variable into categories of 0,1,2, and 3+ vehicles. We also plot the results
+
+```{r, results="asis", echo=FALSE, message=FALSE, warning=FALSE}
+#write_csv(data,"data.csv")
+
+data <- read_csv("data.csv")
+
+data2 <- data %>% filter(SPORDER==1) %>% 
+  filter(PUMA %in% geoids$PUMACE10[which(geoids$perc_puma_area>50)]) %>%
+  mutate(
+    household_income_bracket = case_when(
+      HINCP < 10000 ~ "<$10k",
+      HINCP >= 10000 & HINCP < 15000 ~ "$10k-$15k",
+      HINCP >= 15000 & HINCP < 20000 ~ "$15k-$25k",
+      HINCP >= 25000 & HINCP < 35000 ~ "$25k-$35k",
+      HINCP >= 35000 & HINCP < 50000 ~ "$35k-$50k",
+      HINCP >= 50000 & HINCP < 75000 ~ "$50k-$75k",
+      HINCP >= 75000 & HINCP < 100000 ~ "$75k-$100k",
+      HINCP >= 100000 & HINCP < 125000 ~ "$100k-$125k",
+      HINCP >= 125000 & HINCP < 150000 ~ "$125k-$150k",
+      HINCP >= 150000 & HINCP < 200000 ~ "$150k-$200k",
+      HINCP >= 200000 ~ ">$200k"),
+    vehicles = case_when(
+      VEH == 0 ~ "0",
+      VEH == 1 ~ "1",
+      VEH == 2 ~ "2",
+      VEH > 2 ~ "3+",
+    )
   )
+
+plot_data <- data2 %>%
+  group_by(household_income_bracket,vehicles)  %>%
+  summarize(proportion = sum(WGTP)) %>%
+  group_by(household_income_bracket) %>%
+  mutate(vehicle_percentage = 100*proportion/sum(proportion)) %>%
+  ungroup() %>% 
+  filter(!is.na(household_income_bracket))
+
+ 
+
+plot_data$vehicles<- factor(plot_data$vehicles, levels = c("3+", "2","1","0")) 
+
+plot_data$household_income_bracket <- factor(plot_data$household_income_bracket, levels = c("<$10k","$10k-$15k","$15k-$25k","$25k-$35k","$35k-$50k","$50k-$75k","$75k-$100k","$100k-$125k","$125k-$150k","$150k-$200k",">$200k")) 
+
+# Stacked + percent
+ggplot(plot_data, aes(fill=vehicles, y=proportion, x=household_income_bracket)) + 
+    geom_bar(position="fill", stat="identity")
+
+  
+
+
 ```
-
-You can add options to executable code like this
-
-```{r}
-#| echo: false
-2 * 2
-```
-
-The `echo: false` option disables the printing of code (only output is displayed).
